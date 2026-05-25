@@ -21,6 +21,10 @@ Claude Code의 `.claude/agents/*.md` 서브에이전트 문서 구조를 그대�
   - `openai-compatible`: OpenAI, OpenRouter, DeepInfra, Novita 등 `/chat/completions` 호환 API
 - Hugging Face 기본 모델: `google/gemma-4-26B-A4B-it`
 - 한국 주식 `.KS`, `.KQ` 티커 입력 지원
+- 종목명 입력 자동 변환 지원
+  - 내장 별칭: 삼성전자, SK하이닉스, 에코프로비엠, 엔비디아, 테슬라 등
+  - 한국 종목명: KRX/KIND 상장회사 목록 조회 후 티커 변환
+  - 미국/해외 종목명: Yahoo Finance 검색 보조 변환
 - Markdown 리포트 다운로드 지원
 
 > 주의: 이 앱은 투자 판단 보조용 정보 정리 도구입니다. 실제 매수/매도 권유가 아니며, 최종 투자 책임은 사용자에게 있습니다.
@@ -142,19 +146,19 @@ Streamlit 사이드바에 직접 입력한 API 키가 있으면 `.env`보다 우
 
 ```powershell
 $env:HF_TOKEN="hf_xxxxxxxxxxxxxxxxx"
-python run_analysis.py --tickers NVDA --provider huggingface --model google/gemma-4-26B-A4B-it --period 1y
+python run_analysis.py --tickers 엔비디아 --provider huggingface --model google/gemma-4-26B-A4B-it --period 1y
 ```
 
 특정 HF Inference Provider를 강제하려면:
 
 ```powershell
-python run_analysis.py --tickers NVDA --provider huggingface --model google/gemma-4-26B-A4B-it --hf-provider novita
+python run_analysis.py --tickers 엔비디아 --provider huggingface --model google/gemma-4-26B-A4B-it --hf-provider novita
 ```
 
 또는 모델명에 suffix를 직접 붙일 수 있습니다.
 
 ```powershell
-python run_analysis.py --tickers NVDA --provider huggingface --model google/gemma-4-26B-A4B-it:novita
+python run_analysis.py --tickers 엔비디아 --provider huggingface --model google/gemma-4-26B-A4B-it:novita
 ```
 
 > 참고: Hugging Face Router에서 모델이 지원되는 provider, 사용자의 Inference Providers 권한, 모델 라이선스 동의 여부에 따라 호출 가능 여부가 달라질 수 있습니다. 오류가 나면 HF Playground에서 해당 모델/provider 조합이 가능한지 먼저 확인하세요.
@@ -165,7 +169,7 @@ python run_analysis.py --tickers NVDA --provider huggingface --model google/gemm
 
 ```powershell
 $env:ANTHROPIC_API_KEY="sk-ant-..."
-python run_analysis.py --tickers NVDA --provider anthropic --model claude-sonnet-4-5 --period 1y
+python run_analysis.py --tickers 엔비디아 --provider anthropic --model claude-sonnet-4-5 --period 1y
 ```
 
 Streamlit UI에서는 `LLM Provider = anthropic`을 선택하고 `ANTHROPIC_API_KEY`를 입력하면 됩니다.
@@ -178,20 +182,20 @@ OpenAI, OpenRouter, DeepInfra, Novita 등 `/chat/completions` 호환 엔드포�
 
 ```powershell
 $env:OPENAI_COMPATIBLE_API_KEY="..."
-python run_analysis.py --tickers NVDA --provider openai-compatible --base-url https://api.openai.com/v1 --model gpt-4.1-mini
+python run_analysis.py --tickers 엔비디아 --provider openai-compatible --base-url https://api.openai.com/v1 --model gpt-4.1-mini
 ```
 
 예시:
 
 ```powershell
 # OpenRouter
-python run_analysis.py --tickers NVDA --provider openai-compatible --base-url https://openrouter.ai/api/v1 --model openai/gpt-4.1-mini
+python run_analysis.py --tickers 엔비디아 --provider openai-compatible --base-url https://openrouter.ai/api/v1 --model openai/gpt-4.1-mini
 
 # DeepInfra
-python run_analysis.py --tickers NVDA --provider openai-compatible --base-url https://api.deepinfra.com/v1/openai --model meta-llama/Meta-Llama-3.1-70B-Instruct
+python run_analysis.py --tickers 엔비디아 --provider openai-compatible --base-url https://api.deepinfra.com/v1/openai --model meta-llama/Meta-Llama-3.1-70B-Instruct
 
 # Novita
-python run_analysis.py --tickers NVDA --provider openai-compatible --base-url https://api.novita.ai/v3/openai --model your-model-id
+python run_analysis.py --tickers 엔비디아 --provider openai-compatible --base-url https://api.novita.ai/v3/openai --model your-model-id
 ```
 
 ---
@@ -201,20 +205,34 @@ python run_analysis.py --tickers NVDA --provider openai-compatible --base-url ht
 API 키 없이 규칙 기반 리포트를 만들려면:
 
 ```powershell
-python run_analysis.py --tickers 005930.KS NVDA --provider none --period 1y
+python run_analysis.py --tickers 삼성전자 엔비디아 --provider none --period 1y
 ```
 
 ---
 
-## 9. 한국 주식 입력 예시
+## 9. 종목명/티커 입력 예시
 
-| 입력 | 설명 |
-|---|---|
-| `005930.KS` | 삼성전자, KOSPI |
-| `000660.KS` | SK하이닉스, KOSPI |
-| `035720.KS` | 카카오, KOSPI |
-| `247540.KQ` | 에코프로비엠, KOSDAQ |
-| `005930` + 시장 `KOSPI` | 앱에서 자동으로 `.KS` 부착 |
+| 입력 | 자동 변환 결과 | 설명 |
+|---|---|---|
+| `삼성전자` | `005930.KS` | 내장 별칭 또는 KRX 종목명 조회 |
+| `SK하이닉스` | `000660.KS` | 내장 별칭 또는 KRX 종목명 조회 |
+| `에코프로비엠` | `247540.KQ` | 내장 별칭, KOSDAQ 종목 |
+| `엔비디아` | `NVDA` | 내장 별칭, 미국 주식 |
+| `테슬라` | `TSLA` | 내장 별칭, 미국 주식 |
+| `Samsung Electronics` | Yahoo/KRX 검색 후보 사용 | 영문 종목명 검색 |
+| `005930.KS` | `005930.KS` | 티커 직접 입력 |
+| `000660` + 시장 `KOSPI` | `000660.KS` | 6자리 한국 코드는 시장 선택에 따라 접미사 부착 |
+| `247540` + 시장 `KOSDAQ` | `247540.KQ` | 6자리 KOSDAQ 코드 |
+
+### 종목명 자동 변환 방식
+
+1. 먼저 앱에 내장된 주요 종목 별칭 사전을 확인합니다. 예: `삼성전자`, `엔비디아`, `테슬라`.
+2. 직접 티커처럼 보이는 입력은 그대로 사용합니다. 예: `NVDA`, `005930.KS`.
+3. 한글 종목명은 KRX/KIND 상장회사 목록을 조회해 6자리 코드를 찾습니다.
+4. 영문 종목명이나 해외 종목명은 Yahoo Finance 검색 결과의 첫 번째 주식/ETF 후보를 사용합니다.
+5. 한국 종목명 조회에서 시장 구분이 불완전한 경우 `AUTO` 모드에서는 `.KS`를 먼저 시도하고, 가격 데이터가 비면 `.KQ`로 자동 재시도합니다.
+
+종목명이 여러 후보와 매칭될 수 있으면 앱의 `데이터 수집 경고`에 후보 정보가 표시됩니다. 정확한 분석이 필요하면 최종 티커를 직접 입력하는 것이 가장 안정적입니다.
 
 ---
 

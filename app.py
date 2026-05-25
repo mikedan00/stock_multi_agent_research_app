@@ -115,7 +115,7 @@ with st.sidebar:
             except Exception as exc:
                 st.error(f"연결 실패: {exc}")
 
-    market = st.selectbox("한국 6자리 코드 기본 시장", ["AUTO", "KOSPI", "KOSDAQ"], index=0)
+    market = st.selectbox("한국 종목명/6자리 코드 기본 시장", ["AUTO", "KOSPI", "KOSDAQ"], index=0)
     period = st.selectbox("가격 데이터 기간", ["6mo", "1y", "2y", "5y", "max"], index=1)
     parallel = st.checkbox("1단계 에이전트 병렬 실행", value=True)
 
@@ -128,9 +128,9 @@ with st.sidebar:
         st.error(f"에이전트 로드 실패: {exc}")
 
 input_text = st.text_input(
-    "분석할 종목 티커를 입력하세요",
-    value="005930.KS, NVDA",
-    help="예: 005930.KS, 000660.KS, NVDA, TSLA / 6자리 한국 코드는 시장 선택에 따라 .KS 또는 .KQ 자동 부착",
+    "분석할 종목명 또는 티커를 입력하세요",
+    value="삼성전자, 엔비디아",
+    help="예: 삼성전자, SK하이닉스, 에코프로비엠, 엔비디아, 테슬라, 005930.KS, NVDA / 한국 종목명은 KRX 조회 또는 내장 별칭으로 티커 자동 변환",
 )
 
 col_a, col_b = st.columns([1, 3])
@@ -142,7 +142,7 @@ with col_b:
 if run:
     tickers = [x.strip() for x in input_text.replace("\n", ",").split(",") if x.strip()]
     if not tickers:
-        st.warning("종목 티커를 입력하세요.")
+        st.warning("종목명 또는 티커를 입력하세요.")
         st.stop()
 
     client = build_llm_client(
@@ -158,7 +158,7 @@ if run:
     progress = st.progress(0)
     status = st.empty()
     for i, t in enumerate(tickers, start=1):
-        status.write(f"분석 중: {t} ({i}/{len(tickers)})")
+        status.write(f"분석 중: {t} → 종목명/티커 변환 및 데이터 수집 ({i}/{len(tickers)})")
         try:
             results.append(orchestrator.analyze_one(t, market=market, period=period))
         except Exception as exc:
@@ -172,7 +172,9 @@ if run:
 
     for result in results:
         st.markdown("---")
+        input_label = result.input_ticker if result.input_ticker != result.ticker else result.ticker
         st.header(f"{result.company_name} ({result.ticker})")
+        st.caption(f"입력값: {input_label} · 변환 방식: {result.data_context.get('resolution_method', 'N/A')}")
         if result.warnings:
             with st.expander("데이터 수집 경고"):
                 for w in result.warnings:
@@ -221,7 +223,7 @@ else:
 1. 사이드바에서 먼저 `provider=none`으로 테스트합니다.
 2. LLM을 연결하려면 `huggingface`, `anthropic`, `openai-compatible` 중 하나를 선택합니다.
 3. Hugging Face는 `HF_TOKEN`과 `google/gemma-4-26B-A4B-it` 모델을 기본값으로 사용할 수 있습니다.
-4. 종목 티커를 입력합니다. 예: `005930.KS, NVDA`
+4. 종목명 또는 티커를 입력합니다. 예: `삼성전자, 엔비디아, 005930.KS, NVDA`
 5. **분석 실행**을 누르면 오케스트레이터가 6개 전문 에이전트를 실행합니다.
 
 ### 오케스트레이션 구조

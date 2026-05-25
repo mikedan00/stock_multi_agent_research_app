@@ -11,7 +11,7 @@ from src.exporters import save_markdown
 def main():
     load_dotenv()
     parser = argparse.ArgumentParser(description="Run multi-agent stock research analysis")
-    parser.add_argument("--tickers", nargs="+", required=True, help="Tickers: 005930.KS NVDA TSLA")
+    parser.add_argument("--tickers", nargs="+", required=True, help="Stock names or tickers: 삼성전자 엔비디아 005930.KS NVDA. Use quotes for names with spaces.")
     parser.add_argument("--market", default="AUTO", choices=["AUTO", "KOSPI", "KOSDAQ"])
     parser.add_argument("--period", default="1y", choices=["6mo", "1y", "2y", "5y", "max"])
     parser.add_argument("--provider", default="none", choices=["none", "huggingface", "hf", "anthropic", "openai-compatible"])

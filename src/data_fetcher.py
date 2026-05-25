@@ -8,20 +8,7 @@ import pandas as pd
 import yfinance as yf
 
 from .indicators import compute_technical_indicators
-
-
-def normalize_ticker(ticker: str, market: str = "AUTO") -> str:
-    t = (ticker or "").strip().upper()
-    market = (market or "AUTO").upper()
-    if not t:
-        raise ValueError("Ticker is empty")
-    if t.endswith((".KS", ".KQ", ".T", ".HK", ".SS", ".SZ")):
-        return t
-    if t.isdigit() and len(t) == 6:
-        if market == "KOSDAQ":
-            return f"{t}.KQ"
-        return f"{t}.KS"
-    return t
+from .ticker_resolver import resolve_stock_symbol, normalize_ticker
 
 
 def _json_safe(value: Any) -> Any:
@@ -53,6 +40,9 @@ def _small_table(df: pd.DataFrame, max_rows: int = 18, max_cols: int = 6) -> dic
 class StockDataPackage:
     input_ticker: str
     ticker: str
+    resolved_name: str | None
+    resolution_method: str
+    resolution_candidates: list[Dict[str, Any]]
     market: str
     period: str
     info: Dict[str, Any]
@@ -74,9 +64,49 @@ class StockDataPackage:
         return text
 
 
+def _fetch_history(symbol: str, period: str) -> tuple[pd.DataFrame, str | None]:
+    try:
+        hist = yf.Ticker(symbol).history(period=period, auto_adjust=False)
+        if hist is None:
+            hist = pd.DataFrame()
+        return hist, None
+    except Exception as exc:
+        return pd.DataFrame(), str(exc)
+
+
+def _alternate_krx_suffix(symbol: str) -> str | None:
+    if symbol.endswith(".KS") and len(symbol) == 9 and symbol[:6].isdigit():
+        return symbol[:6] + ".KQ"
+    if symbol.endswith(".KQ") and len(symbol) == 9 and symbol[:6].isdigit():
+        return symbol[:6] + ".KS"
+    return None
+
+
 def fetch_stock_data(ticker: str, market: str = "AUTO", period: str = "1y") -> tuple[StockDataPackage, pd.DataFrame]:
-    normalized = normalize_ticker(ticker, market)
-    warnings: list[str] = []
+    resolution = resolve_stock_symbol(ticker, market)
+    normalized = normalize_ticker(resolution.ticker, market)
+    warnings: list[str] = list(resolution.warnings)
+
+    history, hist_error = _fetch_history(normalized, period)
+    if hist_error:
+        warnings.append(f"가격 데이터 수집 실패({normalized}): {hist_error}")
+
+    # KRX 종목명 조회는 시장 구분이 없을 수 있습니다. AUTO일 때 .KS가 비면 .KQ로 재시도합니다.
+    if (history is None or history.empty) and (market or "AUTO").upper() == "AUTO":
+        alt = _alternate_krx_suffix(normalized)
+        if alt:
+            alt_history, alt_error = _fetch_history(alt, period)
+            if alt_history is not None and not alt_history.empty:
+                warnings.append(f"KRX 시장 접미사 자동 보정: {normalized} → {alt}")
+                normalized = alt
+                resolution.ticker = alt
+                history = alt_history
+            elif alt_error:
+                warnings.append(f"대체 접미사 가격 데이터 수집 실패({alt}): {alt_error}")
+
+    if history is None or history.empty:
+        warnings.append("가격 데이터가 비어 있습니다. 종목명/티커/거래소 접미사를 확인하세요.")
+
     yf_ticker = yf.Ticker(normalized)
 
     info: Dict[str, Any] = {}
@@ -84,14 +114,6 @@ def fetch_stock_data(ticker: str, market: str = "AUTO", period: str = "1y") -> t
         info = yf_ticker.info or {}
     except Exception as exc:
         warnings.append(f"info 수집 실패: {exc}")
-
-    try:
-        history = yf_ticker.history(period=period, auto_adjust=False)
-        if history is None or history.empty:
-            warnings.append("가격 데이터가 비어 있습니다. 티커/거래소 접미사를 확인하세요.")
-    except Exception as exc:
-        history = pd.DataFrame()
-        warnings.append(f"가격 데이터 수집 실패: {exc}")
 
     try:
         financials = _small_table(yf_ticker.financials)
@@ -126,6 +148,9 @@ def fetch_stock_data(ticker: str, market: str = "AUTO", period: str = "1y") -> t
     package = StockDataPackage(
         input_ticker=ticker,
         ticker=normalized,
+        resolved_name=resolution.resolved_name,
+        resolution_method=resolution.method,
+        resolution_candidates=resolution.candidates,
         market=market,
         period=period,
         info={k: info.get(k) for k in [

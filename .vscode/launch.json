@@ -7,7 +7,7 @@
       "request": "launch",
       "program": "${workspaceFolder}/run_analysis.py",
       "console": "integratedTerminal",
-      "args": ["--tickers", "005930.KS", "NVDA", "--provider", "none", "--period", "1y"]
+      "args": ["--tickers", "삼성전자", "엔비디아", "--provider", "none", "--period", "1y"]
     },
     {
       "name": "Streamlit App",
