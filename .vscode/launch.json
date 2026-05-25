@@ -1,0 +1,21 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run CLI Stock Analysis",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/run_analysis.py",
+      "console": "integratedTerminal",
+      "args": ["--tickers", "005930.KS", "NVDA", "--provider", "none", "--period", "1y"]
+    },
+    {
+      "name": "Streamlit App",
+      "type": "python",
+      "request": "launch",
+      "module": "streamlit",
+      "console": "integratedTerminal",
+      "args": ["run", "app.py"]
+    }
+  ]
+}
